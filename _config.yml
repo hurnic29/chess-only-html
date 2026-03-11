@@ -1,0 +1,9 @@
+# _config.yml
+permalink: pretty
+defaults:
+  - scope:
+      path: "" # 根目录
+    values:
+      layout: null # 禁用默认布局
+# 指定首页文件
+index: chess.html
