@@ -1,461 +1,423 @@
 <!DOCTYPE html>
 <html lang="zh">
-
 <head>
-    <meta charset="UTF-8" />
-    <title>国际象棋</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            background: #f0f0f0;
-        }
+<meta charset="UTF-8" />
+<title>国际象棋</title>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        background: #f0f0f0;
+        padding: 20px;
+    }
+    .chess-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        position: relative;
+    }
+    #board {
+        display: grid;
+        grid-template-columns: repeat(8, 60px);
+        grid-template-rows: repeat(8, 60px);
+        gap: 0;
+        border: 2px solid #333;
+        position: relative;
+        margin: 0 20px;
+    }
+    .square {
+        width: 60px;
+        height: 60px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 36px;
+        cursor: pointer;
+        user-select: none;
+    }
+    .white {
+        background: #f0d9b5;
+    }
+    .black {
+        background: #b58863;
+    }
+    .selected {
+        background: rgba(255, 255, 0, 0.4);
+    }
+    .valid {
+        background: rgba(0, 255, 0, 0.3);
+    }
+    .check {
+        background: rgba(255, 0, 0, 0.3);
+    }
+    #status {
+        margin-top: 10px;
+        font-size: 20px;
+        font-weight: bold;
+        height: 30px;
+    }
 
-        #board {
-            display: grid;
-            grid-template-columns: repeat(8, 60px);
-            grid-template-rows: repeat(8, 60px);
-            gap: 0;
-            border: 2px solid #333;
-        }
+    /* 顶部列坐标 a b c d e f g h */
+    .coord-col {
+        display: flex;
+        width: 480px;
+        height: 20px;
+        margin-left: 20px;
+    }
+    .coord-col span {
+        width: 60px;
+        text-align: center;
+        font-size: 14px;
+        font-weight: bold;
+        color: #333;
+    }
 
-        .square {
-            width: 60px;
-            height: 60px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 36px;
-            cursor: pointer;
-        }
-
-        .white {
-            background: #f0d9b5;
-        }
-
-        .black {
-            background: #b58863;
-        }
-
-        .selected {
-            background: rgba(255, 255, 0, 0.4);
-        }
-
-        .valid {
-            background: rgba(0, 255, 0, 0.3);
-        }
-
-        .check {
-            background: rgba(255, 0, 0, 0.3);
-        }
-
-        #status {
-            margin-top: 10px;
-            font-size: 20px;
-            font-weight: bold;
-        }
-    </style>
+    /* 左侧行坐标 8 7 6 5 4 3 2 1 */
+    .coord-row {
+        display: flex;
+        flex-direction: column;
+        height: 480px;
+        width: 20px;
+        position: absolute;
+        left: 0;
+        top: 0;
+    }
+    .coord-row span {
+        height: 60px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+        font-weight: bold;
+        color: #333;
+    }
+</style>
 </head>
-
 <body>
 
-    <div id="status">轮到白方走棋</div>
+<div id="status">轮到白方走棋</div>
+
+<div class="chess-container">
+    <!-- 行坐标 8 7 6 ... 1 -->
+    <div class="coord-row">
+        <span>8</span>
+        <span>7</span>
+        <span>6</span>
+        <span>5</span>
+        <span>4</span>
+        <span>3</span>
+        <span>2</span>
+        <span>1</span>
+    </div>
+
+    <!-- 列坐标 a b c d e f g h -->
+    <div class="coord-col">
+        <span>a</span>
+        <span>b</span>
+        <span>c</span>
+        <span>d</span>
+        <span>e</span>
+        <span>f</span>
+        <span>g</span>
+        <span>h</span>
+    </div>
+
     <div id="board"></div>
+</div>
 
-    <script>
-        const board = document.getElementById("board");
-        const statusText = document.getElementById("status");
+<script>
+const board = document.getElementById("board");
+const statusText = document.getElementById("status");
 
-        let currentPlayer = "white";
-        let selectedPiece = null;
-        let validMoves = [];
-        let gameOver = false; // 新增：游戏结束标记
+let currentPlayer = "white";
+let selectedPiece = null;
+let validMoves = [];
+let gameOver = false;
 
-        // 初始化棋盘
-        const pieces = [
-            ["r", "n", "b", "q", "k", "b", "n", "r"],
-            ["p", "p", "p", "p", "p", "p", "p", "p"],
-            Array(8).fill(null),
-            Array(8).fill(null),
-            Array(8).fill(null),
-            Array(8).fill(null),
-            ["P", "P", "P", "P", "P", "P", "P", "P"],
-            ["R", "N", "B", "Q", "K", "B", "N", "R"],
-        ];
+// 初始化棋盘（标准布局：row 0 = 第8行，row 7 = 第1行）
+const pieces = [
+    ["r", "n", "b", "q", "k", "b", "n", "r"], // 第8行
+    ["p", "p", "p", "p", "p", "p", "p", "p"], // 第7行
+    Array(8).fill(null),
+    Array(8).fill(null),
+    Array(8).fill(null),
+    Array(8).fill(null),
+    ["P", "P", "P", "P", "P", "P", "P", "P"], // 第2行
+    ["R", "N", "B", "Q", "K", "B", "N", "R"], // 第1行
+];
 
-        // 生成棋盘
-        for (let row = 0; row < 8; row++) {
-            for (let col = 0; col < 8; col++) {
-                const square = document.createElement("div");
-                square.className = (row + col) % 2 === 0 ? "square white" : "square black";
-                square.dataset.row = row;
-                square.dataset.col = col;
+// 渲染棋盘
+for (let row = 0; row < 8; row++) {
+    for (let col = 0; col < 8; col++) {
+        const square = document.createElement("div");
+        square.className = (row + col) % 2 === 0 ? "square white" : "square black";
+        square.dataset.row = row;
+        square.dataset.col = col;
 
-                const piece = pieces[row][col];
-                if (piece) {
-                    const color = piece === piece.toUpperCase() ? "white" : "black";
-                    square.textContent = getUnicodePiece(piece);
-                    square.dataset.piece = piece;
-                    square.dataset.color = color;
-                }
-
-                square.addEventListener("click", () => handleClick(row, col));
-                board.appendChild(square);
-            }
+        const piece = pieces[row][col];
+        if (piece) {
+            const color = piece === piece.toUpperCase() ? "white" : "black";
+            square.textContent = getUnicodePiece(piece);
+            square.dataset.piece = piece;
+            square.dataset.color = color;
         }
 
-        // Unicode 棋子
-        function getUnicodePiece(piece) {
-            const map = {
-                "K": "♔", "Q": "♕", "R": "♖", "B": "♗", "N": "♘", "P": "♙",
-                "k": "♚", "q": "♛", "r": "♜", "b": "♝", "n": "♞", "p": "♟"
-            };
-            return map[piece] || "";
-        }
+        square.addEventListener("click", () => handleClick(row, col));
+        board.appendChild(square);
+    }
+}
 
-        // 点击处理（新增游戏结束判断）
-        function handleClick(row, col) {
-            // 游戏结束后禁用所有操作
-            if (gameOver) return;
+function getUnicodePiece(piece) {
+    const map = {
+        "K": "♔", "Q": "♕", "R": "♖", "B": "♗", "N": "♘", "P": "♙",
+        "k": "♚", "q": "♛", "r": "♜", "b": "♝", "n": "♞", "p": "♟"
+    };
+    return map[piece] || "";
+}
 
-            const square = getSquare(row, col);
-            const piece = square.dataset.piece;
-            const color = square.dataset.color;
+function handleClick(row, col) {
+    if (gameOver) return;
 
-            // 如果已经选中棋子
-            if (selectedPiece) {
-                // 点击的是自己的棋子，切换选中
-                if (piece && color === currentPlayer) {
-                    clearHighlights();
-                    selectedPiece = { row, col };
-                    highlightSelected(row, col);
-                    validMoves = getValidMoves(row, col);
-                    highlightValidMoves(validMoves);
-                    return;
-                }
+    const square = getSquare(row, col);
+    const piece = square.dataset.piece;
+    const color = square.dataset.color;
 
-                // 检查是否是合法移动
-                const move = validMoves.find(m => m.row === row && m.col === col);
-                if (move) {
-                    // 移动前检查是否要吃掉王
-                    const targetPiece = square.dataset.piece;
-                    if (targetPiece && targetPiece.toUpperCase() === "K") {
-                        // 吃掉王，直接判定游戏结束
-                        gameOver = true;
-                        movePiece(selectedPiece.row, selectedPiece.col, row, col);
-                        clearHighlights();
-                        selectedPiece = null;
-                        statusText.textContent = `${currentPlayer === "white" ? "白" : "黑"}方吃掉对方的王，游戏结束！`;
-                        return;
-                    }
-
-                    // 正常移动棋子
-                    movePiece(selectedPiece.row, selectedPiece.col, row, col);
-                    clearHighlights();
-                    selectedPiece = null;
-
-                    // 切换玩家并检查将军/将死
-                    currentPlayer = currentPlayer === "white" ? "black" : "white";
-                    checkGameStatus();
-                } else {
-                    clearHighlights();
-                    selectedPiece = null;
-                }
-                return;
-            }
-
-            // 选择棋子
-            if (piece && color === currentPlayer) {
-                selectedPiece = { row, col };
-                highlightSelected(row, col);
-                validMoves = getValidMoves(row, col);
-                highlightValidMoves(validMoves);
-            }
-        }
-
-        // 新增：检查游戏状态（将军/将死）
-        function checkGameStatus() {
-            // 找到当前玩家的王的位置
-            const kingColor = currentPlayer;
-            const kingPosition = findKingPosition(kingColor);
-
-            // 如果王不存在（已经被吃），直接结束
-            if (!kingPosition) {
-                gameOver = true;
-                statusText.textContent = `${kingColor === "white" ? "白" : "黑"}方的王被吃掉，游戏结束！`;
-                return;
-            }
-
-            // 检查王是否被将军
-            const isInCheck = isKingInCheck(kingColor, kingPosition);
-
-            // 检查是否将死（被将军且无任何合法移动）
-            const isCheckmate = isInCheck && !hasAnyValidMoves(kingColor);
-
-            if (isCheckmate) {
-                gameOver = true;
-                statusText.textContent = `${kingColor === "white" ? "白" : "黑"}方被将死，游戏结束！`;
-                highlightKing(kingPosition.row, kingPosition.col); // 高亮被将死的王
-            } else if (isInCheck) {
-                statusText.textContent = `${kingColor === "white" ? "白" : "黑"}方被将军！`;
-                highlightKing(kingPosition.row, kingPosition.col); // 高亮被将军的王
-            } else {
-                statusText.textContent = `轮到${kingColor === "white" ? "白" : "黑"}方走棋`;
-            }
-        }
-
-        // 新增：找到指定颜色的王的位置
-        function findKingPosition(color) {
-            const kingSymbol = color === "white" ? "K" : "k";
-            for (let row = 0; row < 8; row++) {
-                for (let col = 0; col < 8; col++) {
-                    const square = getSquare(row, col);
-                    if (square.dataset.piece === kingSymbol) {
-                        return { row, col };
-                    }
-                }
-            }
-            return null; // 王被吃掉
-        }
-
-        // 新增：检查指定颜色的王是否被将军
-        function isKingInCheck(color, kingPos) {
-            const opponentColor = color === "white" ? "black" : "white";
-
-            // 遍历对方所有棋子，检查是否能攻击到王
-            for (let row = 0; row < 8; row++) {
-                for (let col = 0; col < 8; col++) {
-                    const square = getSquare(row, col);
-                    if (square.dataset.color === opponentColor && square.dataset.piece) {
-                        // 获取该棋子的所有合法移动
-                        const moves = getValidMoves(row, col);
-                        // 检查是否能移动到王的位置
-                        const canAttackKing = moves.some(m => m.row === kingPos.row && m.col === kingPos.col);
-                        if (canAttackKing) {
-                            return true;
-                        }
-                    }
-                }
-            }
-            return false;
-        }
-
-        // 新增：检查指定颜色是否还有任何合法移动
-        function hasAnyValidMoves(color) {
-            // 遍历所有己方棋子
-            for (let row = 0; row < 8; row++) {
-                for (let col = 0; col < 8; col++) {
-                    const square = getSquare(row, col);
-                    if (square.dataset.color === color && square.dataset.piece) {
-                        // 获取该棋子的合法移动
-                        const moves = getValidMoves(row, col);
-                        if (moves.length > 0) {
-                            return true; // 还有合法移动
-                        }
-                    }
-                }
-            }
-            return false; // 无任何合法移动
-        }
-
-        // 新增：高亮被将军/将死的王
-        function highlightKing(row, col) {
+    if (selectedPiece) {
+        if (piece && color === currentPlayer) {
             clearHighlights();
-            getSquare(row, col).classList.add("check");
+            selectedPiece = { row, col };
+            highlightSelected(row, col);
+            validMoves = getValidMoves(row, col);
+            highlightValidMoves(validMoves);
+            return;
         }
 
-        // 获取格子
-        function getSquare(row, col) {
-            return document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
-        }
-
-        // 高亮选中
-        function highlightSelected(row, col) {
-            getSquare(row, col).classList.add("selected");
-        }
-
-        // 高亮合法移动
-        function highlightValidMoves(moves) {
-            moves.forEach(m => {
-                getSquare(m.row, m.col).classList.add("valid");
-            });
-        }
-
-        // 清除高亮（新增清除check类）
-        function clearHighlights() {
-            document.querySelectorAll(".selected, .valid, .check").forEach(el => {
-                el.classList.remove("selected", "valid", "check");
-            });
-        }
-
-        // 移动棋子
-        function movePiece(fromRow, fromCol, toRow, toCol) {
-            const from = getSquare(fromRow, fromCol);
-            const to = getSquare(toRow, toCol);
-
-            to.textContent = from.textContent;
-            to.dataset.piece = from.dataset.piece;
-            to.dataset.color = from.dataset.color;
-
-            from.textContent = "";
-            from.dataset.piece = "";
-            from.dataset.color = "";
-        }
-
-        // 获取所有合法移动
-        function getValidMoves(row, col) {
-            const piece = getSquare(row, col).dataset.piece;
-            const color = getSquare(row, col).dataset.color;
-
-            switch (piece.toUpperCase()) {
-                case "P": return getPawnMoves(row, col, color);
-                case "R": return getRookMoves(row, col, color);
-                case "N": return getKnightMoves(row, col, color);
-                case "B": return getBishopMoves(row, col, color);
-                case "Q": return getQueenMoves(row, col, color);
-                case "K": return getKingMoves(row, col, color);
-                default: return [];
-            }
-        }
-
-        // 兵的走法
-        function getPawnMoves(row, col, color) {
-            const moves = [];
-            const direction = color === "white" ? -1 : 1;
-
-            // 前进一格
-            if (isValidSquare(row + direction, col) && !getSquare(row + direction, col).dataset.piece) {
-                moves.push({ row: row + direction, col });
-
-                // 前进两格（初始位置）
-                const startRow = color === "white" ? 6 : 1;
-                if (row === startRow && !getSquare(row + 2 * direction, col).dataset.piece) {
-                    moves.push({ row: row + 2 * direction, col });
-                }
+        const move = validMoves.find(m => m.row === row && m.col === col);
+        if (move) {
+            const targetPiece = square.dataset.piece;
+            if (targetPiece && targetPiece.toUpperCase() === "K") {
+                gameOver = true;
+                movePiece(selectedPiece.row, selectedPiece.col, row, col);
+                clearHighlights();
+                selectedPiece = null;
+                statusText.textContent = `${currentPlayer === "white" ? "白" : "黑"}方吃掉对方的王，游戏结束！`;
+                return;
             }
 
-            // 吃子
-            [-1, 1].forEach(dc => {
-                const r = row + direction;
-                const c = col + dc;
-                if (isValidSquare(r, c)) {
-                    const target = getSquare(r, c);
-                    if (target.dataset.piece && target.dataset.color !== color) {
-                        moves.push({ row: r, col: c });
-                    }
+            movePiece(selectedPiece.row, selectedPiece.col, row, col);
+            clearHighlights();
+            selectedPiece = null;
+            currentPlayer = currentPlayer === "white" ? "black" : "white";
+            checkGameStatus();
+        } else {
+            clearHighlights();
+            selectedPiece = null;
+        }
+        return;
+    }
+
+    if (piece && color === currentPlayer) {
+        selectedPiece = { row, col };
+        highlightSelected(row, col);
+        validMoves = getValidMoves(row, col);
+        highlightValidMoves(validMoves);
+    }
+}
+
+function checkGameStatus() {
+    const kingColor = currentPlayer;
+    const kingPosition = findKingPosition(kingColor);
+
+    if (!kingPosition) {
+        gameOver = true;
+        statusText.textContent = `${kingColor === "white" ? "白" : "黑"}方的王被吃掉，游戏结束！`;
+        return;
+    }
+
+    const isInCheck = isKingInCheck(kingColor, kingPosition);
+    const isCheckmate = isInCheck && !hasAnyValidMoves(kingColor);
+
+    if (isCheckmate) {
+        gameOver = true;
+        statusText.textContent = `${kingColor === "white" ? "白" : "黑"}方被将死，游戏结束！`;
+        highlightKing(kingPosition.row, kingPosition.col);
+    } else if (isInCheck) {
+        statusText.textContent = `${kingColor === "white" ? "白" : "黑"}方被将军！`;
+        highlightKing(kingPosition.row, kingPosition.col);
+    } else {
+        statusText.textContent = `轮到${kingColor === "white" ? "白" : "黑"}方走棋`;
+    }
+}
+
+function findKingPosition(color) {
+    const kingSymbol = color === "white" ? "K" : "k";
+    for (let row = 0; row < 8; row++) {
+        for (let col = 0; col < 8; col++) {
+            const s = getSquare(row, col);
+            if (s.dataset.piece === kingSymbol) return { row, col };
+        }
+    }
+    return null;
+}
+
+function isKingInCheck(color, kingPos) {
+    const oppo = color === "white" ? "black" : "white";
+    for (let row = 0; row < 8; row++) {
+        for (let col = 0; col < 8; col++) {
+            const s = getSquare(row, col);
+            if (s.dataset.color === oppo && s.dataset.piece) {
+                const moves = getValidMoves(row, col);
+                if (moves.some(m => m.row === kingPos.row && m.col === kingPos.col)) {
+                    return true;
                 }
-            });
-
-            return moves;
+            }
         }
+    }
+    return false;
+}
 
-        // 车的走法
-        function getRookMoves(row, col, color) {
-            const moves = [];
-            const dirs = [[-1, 0], [1, 0], [0, -1], [0, 1]];
-
-            dirs.forEach(([dr, dc]) => {
-                let r = row + dr;
-                let c = col + dc;
-                while (isValidSquare(r, c)) {
-                    const target = getSquare(r, c);
-                    if (!target.dataset.piece) {
-                        moves.push({ row: r, col: c });
-                    } else {
-                        if (target.dataset.color !== color) {
-                            moves.push({ row: r, col: c });
-                        }
-                        break;
-                    }
-                    r += dr;
-                    c += dc;
-                }
-            });
-
-            return moves;
+function hasAnyValidMoves(color) {
+    for (let row = 0; row < 8; row++) {
+        for (let col = 0; col < 8; col++) {
+            const s = getSquare(row, col);
+            if (s.dataset.color === color && s.dataset.piece) {
+                if (getValidMoves(row, col).length > 0) return true;
+            }
         }
+    }
+    return false;
+}
 
-        // 马的走法
-        function getKnightMoves(row, col, color) {
-            const moves = [];
-            const dirs = [[-2, -1], [-2, 1], [-1, -2], [-1, 2], [1, -2], [1, 2], [2, -1], [2, 1]];
+function highlightKing(row, col) {
+    clearHighlights();
+    getSquare(row, col).classList.add("check");
+}
 
-            dirs.forEach(([dr, dc]) => {
-                const r = row + dr;
-                const c = col + dc;
-                if (isValidSquare(r, c)) {
-                    const target = getSquare(r, c);
-                    if (!target.dataset.piece || target.dataset.color !== color) {
-                        moves.push({ row: r, col: c });
-                    }
-                }
-            });
+function getSquare(row, col) {
+    return document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
+}
+function highlightSelected(row, col) {
+    getSquare(row, col).classList.add("selected");
+}
+function highlightValidMoves(moves) {
+    moves.forEach(m => getSquare(m.row, m.col).classList.add("valid"));
+}
+function clearHighlights() {
+    document.querySelectorAll(".selected,.valid,.check").forEach(el => {
+        el.classList.remove("selected", "valid", "check");
+    });
+}
 
-            return moves;
+function movePiece(fromRow, fromCol, toRow, toCol) {
+    const from = getSquare(fromRow, fromCol);
+    const to = getSquare(toRow, toCol);
+    to.textContent = from.textContent;
+    to.dataset.piece = from.dataset.piece;
+    to.dataset.color = from.dataset.color;
+    from.textContent = "";
+    from.dataset.piece = "";
+    from.dataset.color = "";
+}
+
+function getValidMoves(row, col) {
+    const piece = getSquare(row, col).dataset.piece;
+    const color = getSquare(row, col).dataset.color;
+    switch (piece?.toUpperCase()) {
+        case "P": return getPawnMoves(row, col, color);
+        case "R": return getRookMoves(row, col, color);
+        case "N": return getKnightMoves(row, col, color);
+        case "B": return getBishopMoves(row, col, color);
+        case "Q": return getQueenMoves(row, col, color);
+        case "K": return getKingMoves(row, col, color);
+        default: return [];
+    }
+}
+
+function getPawnMoves(row, col, color) {
+    const moves = [];
+    const dir = color === "white" ? -1 : 1;
+    if (isValidSquare(row+dir, col) && !getSquare(row+dir, col).dataset.piece) {
+        moves.push({row:row+dir, col});
+        const start = color === "white" ? 6 : 1;
+        if (row === start && !getSquare(row+2*dir, col).dataset.piece) {
+            moves.push({row:row+2*dir, col});
         }
-
-        // 象的走法
-        function getBishopMoves(row, col, color) {
-            const moves = [];
-            const dirs = [[-1, -1], [-1, 1], [1, -1], [1, 1]];
-
-            dirs.forEach(([dr, dc]) => {
-                let r = row + dr;
-                let c = col + dc;
-                while (isValidSquare(r, c)) {
-                    const target = getSquare(r, c);
-                    if (!target.dataset.piece) {
-                        moves.push({ row: r, col: c });
-                    } else {
-                        if (target.dataset.color !== color) {
-                            moves.push({ row: r, col: c });
-                        }
-                        break;
-                    }
-                    r += dr;
-                    c += dc;
-                }
-            });
-
-            return moves;
+    }
+    [-1,1].forEach(dc => {
+        const r = row+dir, c = col+dc;
+        if (isValidSquare(r,c)) {
+            const t = getSquare(r,c);
+            if (t.dataset.piece && t.dataset.color !== color) moves.push({row:r, col:c});
         }
-
-        // 后的走法
-        function getQueenMoves(row, col, color) {
-            return [
-                ...getRookMoves(row, col, color),
-                ...getBishopMoves(row, col, color)
-            ];
+    });
+    return moves;
+}
+function getRookMoves(row, col, color) {
+    const moves = [];
+    const dirs = [[-1,0],[1,0],[0,-1],[0,1]];
+    for (const [dr,dc] of dirs) {
+        let r = row+dr, c = col+dc;
+        while (isValidSquare(r,c)) {
+            const t = getSquare(r,c);
+            if (!t.dataset.piece) moves.push({row:r, col:c});
+            else {
+                if (t.dataset.color !== color) moves.push({row:r, col:c});
+                break;
+            }
+            r += dr; c += dc;
         }
-
-        // 王的走法
-        function getKingMoves(row, col, color) {
-            const moves = [];
-            const dirs = [[-1, -1], [-1, 0], [-1, 1], [0, -1], [0, 1], [1, -1], [1, 0], [1, 1]];
-
-            dirs.forEach(([dr, dc]) => {
-                const r = row + dr;
-                const c = col + dc;
-                if (isValidSquare(r, c)) {
-                    const target = getSquare(r, c);
-                    if (!target.dataset.piece || target.dataset.color !== color) {
-                        moves.push({ row: r, col: c });
-                    }
-                }
-            });
-
-            return moves;
+    }
+    return moves;
+}
+function getKnightMoves(row, col, color) {
+    const moves = [];
+    const dirs = [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]];
+    for (const [dr,dc] of dirs) {
+        const r = row+dr, c = col+dc;
+        if (isValidSquare(r,c)) {
+            const t = getSquare(r,c);
+            if (!t.dataset.piece || t.dataset.color !== color) moves.push({row:r, col:c});
         }
-
-        // 检查坐标是否合法
-        function isValidSquare(row, col) {
-            return row >= 0 && row < 8 && col >= 0 && col < 8;
+    }
+    return moves;
+}
+function getBishopMoves(row, col, color) {
+    const moves = [];
+    const dirs = [[-1,-1],[-1,1],[1,-1],[1,1]];
+    for (const [dr,dc] of dirs) {
+        let r = row+dr, c = col+dc;
+        while (isValidSquare(r,c)) {
+            const t = getSquare(r,c);
+            if (!t.dataset.piece) moves.push({row:r, col:c});
+            else {
+                if (t.dataset.color !== color) moves.push({row:r, col:c});
+                break;
+            }
+            r += dr; c += dc;
         }
-
-    </script>
-
+    }
+    return moves;
+}
+function getQueenMoves(row, col, color) {
+    return [...getRookMoves(row,col,color), ...getBishopMoves(row,col,color)];
+}
+function getKingMoves(row, col, color) {
+    const moves = [];
+    const dirs = [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
+    for (const [dr,dc] of dirs) {
+        const r = row+dr, c = col+dc;
+        if (isValidSquare(r,c)) {
+            const t = getSquare(r,c);
+            if (!t.dataset.piece || t.dataset.color !== color) moves.push({row:r, col:c});
+        }
+    }
+    return moves;
+}
+function isValidSquare(row, col) {
+    return row >=0 && row <8 && col >=0 && col <8;
+}
+</script>
 </body>
-
 </html>
